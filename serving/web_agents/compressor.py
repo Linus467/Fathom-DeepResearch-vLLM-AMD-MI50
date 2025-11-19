@@ -320,29 +320,30 @@ def _call_openai(model: str, prompt: str, *, temperature: float,
 def _call_sglang(base_url: str, prompt: str, *, temperature: float,
                max_tokens: int, stop: List[str] | None = None) -> str:
     """
-    Call a vLLM REST endpoint that exposes POST {base_url}/generate.
+    Call a vLLM OpenAI-compatible REST endpoint.
     Returns the generated text (1st candidate).
     """
     payload = {
-        "text": prompt,
-        "sampling_params": {
-            "temperature": temperature,
-            "max_new_tokens": max_tokens,
-            "repetition_penalty": 1.05
-        },
+        "model": "default",
+        "prompt": prompt,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+        "stop": stop if stop else None,
     }
-    if stop:  # only include if provided
-        payload["sampling_params"]["stop"] = stop
 
     resp = requests.post(
-        f"{base_url.rstrip('/')}/generate",
+        f"{base_url.rstrip('/')}/v1/completions",
         json=payload,
         timeout=60,
     )
     resp.raise_for_status()
     data = resp.json()
 
-    # vLLM returns {"text": "..."}  or  {"text": ["...", "..."]}
+    # vLLM OpenAI format returns {"choices": [{"text": "..."}]}
+    if isinstance(data, dict) and "choices" in data:
+        return data["choices"][0]["text"]
+    
+    # Fallback for legacy format
     if isinstance(data, dict) and "text" in data:
         txt = data["text"]
         if isinstance(txt, list):

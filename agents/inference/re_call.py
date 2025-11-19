@@ -188,17 +188,31 @@ class ReCall():
             max_tokens_left = max_new_tokens - len(prompt_tokens) - 100
    
             response = requests.post(
-                f'{model_url}/generate', 
+                f'{model_url}/v1/completions', 
                 json={
-                    "text": curr_prompt,
-                    "sampling_params": {
-                        "temperature": temperature,
-                        "max_new_tokens": max_tokens_left,
-                        "repetition_penalty": 1.05
-                    },
-
+                    "model": "Fathom-Search",
+                    "prompt": curr_prompt,
+                    "temperature": temperature,
+                    "max_tokens": max_tokens_left,
+                    "repetition_penalty": 1.05,
                 }
             ).json()
+            
+            # Handle vLLM OpenAI-compatible response format
+            if 'choices' in response and 'text' not in response:
+                if len(response['choices']) > 0:
+                    # /v1/completions returns choices[0].text directly
+                    if 'text' in response['choices'][0]:
+                        response['text'] = response['choices'][0]['text']
+                    # /v1/chat/completions returns choices[0].message.content
+                    elif 'message' in response['choices'][0]:
+                        response['text'] = response['choices'][0]['message']['content']
+            
+            # Debug: print response if text is still missing
+            if 'text' not in response:
+                print(f"ERROR: No 'text' key in response: {response}")
+                raise KeyError("'text'")
+            
             print("="*100)
             print("Thinking ....")
             print("<think>"+response['text'])
