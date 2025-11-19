@@ -26,6 +26,7 @@ import argparse
 import os
 import random
 import sys
+import re
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -193,44 +194,34 @@ def _call_sglang(base_url: str, system_prompt: str, user_prompt: str, *,
                  temperature: float, max_tokens: int,
                  stop: Optional[List[str]] = None, timeout: int = 400) -> str:
     """
-    Call an sglang server that exposes POST {base_url}/generate
-    with {"text": <prompt>, "sampling_params": {...}} and return the first text.
+    Call vLLM /v1/completions endpoint (OpenAI-compatible).
     """
     if requests is None:
         raise RuntimeError("requests not installed. `pip install requests`")
 
-    # simple 2-turn format; keep exactly what your backend expects
-    # merged = f"[SYSTEM]\n{system_prompt}\n\n[USER]\n{user_prompt}"
-    # user_prompt = reformat_trace(user_prompt)
+    # Format the prompt using chatml
     merged = chatml_wrap(system_prompt, user_prompt)
 
-
+    # Use vLLM's OpenAI-compatible /v1/completions endpoint
     payload = {
-        "text": merged,
-        "sampling_params": {
-            "temperature": float(temperature),
-            "max_new_tokens": int(max_tokens),
-            "repetition_penalty": 1.05,
-        },
+        "model": "Fathom-Synthesizer",
+        "prompt": merged,
+        "temperature": float(temperature),
+        "max_tokens": int(max_tokens),
+        "stream": False,
     }
     if stop:
-        payload["sampling_params"]["stop"] = stop
+        payload["stop"] = stop
 
-    resp = requests.post(f"{base_url.rstrip('/')}/generate", json=payload, timeout=timeout)
+    resp = requests.post(f"{base_url.rstrip('/')}/v1/completions", json=payload, timeout=timeout)
     resp.raise_for_status()
     data = resp.json()
-    # print("data", data)
 
-    # sglang/vLLM usually returns {"text": "..."} or {"text": ["...", ...]}
-    txt = data.get("text")
-    # print("resp", txt)
-    if isinstance(txt, list):
-        return txt[0]
-    if isinstance(txt, str):
-        return txt
-    raise ValueError(f"Unexpected /generate response: {data!r}")
-
-import re
+    # vLLM returns {"choices": [{"text": "..."}]}
+    if "choices" in data and len(data["choices"]) > 0:
+        return data["choices"][0].get("text", "")
+    
+    raise ValueError(f"Unexpected /v1/completions response: {data!r}")
 
 
 def reformat_trace(s: str) -> str:
