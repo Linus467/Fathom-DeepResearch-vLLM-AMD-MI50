@@ -10,7 +10,7 @@ if [ -f tool_server.pid ]; then
 fi
 
 # Stop Docker containers
-docker-compose down
+docker compose down
 echo "   ✓ vLLM containers stopped"
 
 echo ""

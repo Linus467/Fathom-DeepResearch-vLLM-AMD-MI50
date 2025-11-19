@@ -209,3 +209,16 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+.env
+serving/.api_keys
+
+# API Keys and sensitive data
+.env
+scripts/.env
+serving/.api_keys
+*.log
+tool_server.pid
+
+# Cache directories
+Cache/
+.cache/
