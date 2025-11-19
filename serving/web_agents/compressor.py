@@ -324,7 +324,7 @@ def _call_sglang(base_url: str, prompt: str, *, temperature: float,
     Returns the generated text (1st candidate).
     """
     payload = {
-        "model": "default",
+        "model": "Fathom-Search",
         "prompt": prompt,
         "temperature": temperature,
         "max_tokens": max_tokens,
