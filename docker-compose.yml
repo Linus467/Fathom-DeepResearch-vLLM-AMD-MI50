@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  vllm-search:
+    image: mixa3607/vllm-gfx906:0.11.0-rocm-6.3.3-tomylin890-abbe414
+    container_name: fathom-search
+    network_mode: host
+    environment:
+      - HIP_VISIBLE_DEVICES=0
+      - ROCR_VISIBLE_DEVICES=0
+      - VLLM_TARGET_DEVICE=rocm
+    devices:
+      - /dev/kfd
+      - /dev/dri
+    group_add:
+      - video
+      - '993'
+    volumes:
+      - ${HOME}/models:/models
+    shm_size: 16gb
+    ipc: host
+    command: >
+      python -m vllm.entrypoints.openai.api_server
+      --model /models/Fathom-Search-4B
+      --served-model-name Fathom-Search
+      --host 0.0.0.0
+      --port 8000
+      --gpu-memory-utilization 0.95
+      --swap-space 0
+      --enable-chunked-prefill
+      --num-lookahead-slots 12
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/v1/models"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  vllm-synth:
+    image: mixa3607/vllm-gfx906:0.11.0-rocm-6.3.3-tomylin890-abbe414
+    container_name: fathom-synth
+    network_mode: host
+    environment:
+      - HIP_VISIBLE_DEVICES=1
+      - ROCR_VISIBLE_DEVICES=1
+      - VLLM_TARGET_DEVICE=rocm
+    devices:
+      - /dev/kfd
+      - /dev/dri
+    group_add:
+      - video
+      - '993'
+    volumes:
+      - ${HOME}/models:/models
+    shm_size: 16gb
+    ipc: host
+    command: >
+      python -m vllm.entrypoints.openai.api_server
+      --model /models/Fathom-Synthesizer-4B
+      --served-model-name Fathom-Synthesizer
+      --host 0.0.0.0
+      --port 8001
+      --gpu-memory-utilization 0.95
+      --swap-space 0
+      --enable-chunked-prefill
+      --num-lookahead-slots 12
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/v1/models"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    depends_on:
+      - vllm-search
